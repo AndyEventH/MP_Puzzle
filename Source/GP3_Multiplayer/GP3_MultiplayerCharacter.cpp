@@ -12,6 +12,7 @@
 #include "InputActionValue.h"
 #include "PressureButton.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -21,24 +22,19 @@ DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 AGP3_MultiplayerCharacter::AGP3_MultiplayerCharacter()
 {
-	bUseControllerRotationPitch = true;
+	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
 
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
-	// Don't rotate when the controller rotates. Let that just affect the camera.
-	bUseControllerRotationPitch = false;
-	bUseControllerRotationYaw = false;
-	bUseControllerRotationRoll = false;
-
-	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // ...at this rotation rate
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
 	// instead of recompiling to adjust them
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+	GetCharacterMovement()->bUseControllerDesiredRotation = true;
 	GetCharacterMovement()->JumpZVelocity = 700.f;
 	GetCharacterMovement()->AirControl = 0.35f;
 	GetCharacterMovement()->MaxWalkSpeed = 500.f;
@@ -55,11 +51,9 @@ AGP3_MultiplayerCharacter::AGP3_MultiplayerCharacter()
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom);
-	FollowCamera->bUsePawnControlRotation = false;
+	FollowCamera->bUsePawnControlRotation = true;
 	FollowCamera->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight));
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character)
-	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 	bReplicates = true;
 	CharacterScale = 1.f;
 }
@@ -209,6 +203,10 @@ void AGP3_MultiplayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AGP3_MultiplayerCharacter, CharacterScale);
+	DOREPLIFETIME_CONDITION(
+		AGP3_MultiplayerCharacter,
+		HeadLook,
+		COND_SkipOwner);
 }
 
 void AGP3_MultiplayerCharacter::OnInteractStarted(const FInputActionValue& Value)
@@ -300,6 +298,22 @@ void AGP3_MultiplayerCharacter::ServerPressButton_Implementation(APressureButton
 
 void AGP3_MultiplayerCharacter::Tick(float DeltaTime)
 {
+	if (IsLocallyControlled())
+	{
+		const FRotator Control = Controller->GetControlRotation();
+		const FRotator Body = GetActorRotation();
+		const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(
+			Control, Body);
+
+		FRotator NewLook;
+		NewLook.Yaw = FMath::ClampAngle(-Delta.Pitch, -60.f, 60.f);
+
+		HeadLook = NewLook;
+
+		if (!HasAuthority())
+			Server_UpdateHeadLook(NewLook);
+	}
+
 	Super::Tick(DeltaTime);
 	if (CurrentPressedButton && !CurrentPressedButton->IsInteractableBy(this))
 	{
@@ -349,7 +363,7 @@ void AGP3_MultiplayerCharacter::UpdateHeldCrate()
 		&& HoldingCrate->GetOwner() == GetController())
 	{
 		const FVector Target = GetActorLocation()
-			+ GetActorForwardVector() * 200.f;
+			+ GetFollowCamera()->GetForwardVector() * 200.f;
 
 		ServerRequestDragMove(HoldingCrate.Get(), Target);
 	}
@@ -439,4 +453,10 @@ bool AGP3_MultiplayerCharacter::ServerRequestGrab_Validate(AMovableCrate* Crate)
 void AGP3_MultiplayerCharacter::ServerRequestGrab_Implementation(AMovableCrate* Crate)
 {
 	Crate->ServerBeginDrag_Implementation(GetController());
+}
+
+void AGP3_MultiplayerCharacter::Server_UpdateHeadLook_Implementation(
+	const FRotator& NewLook)
+{
+	HeadLook = NewLook;
 }

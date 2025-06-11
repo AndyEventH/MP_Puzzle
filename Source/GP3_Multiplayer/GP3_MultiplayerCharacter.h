@@ -68,6 +68,11 @@ public:
 
 protected:
 
+	UFUNCTION(Server, Unreliable)
+	void Server_UpdateHeadLook(const FRotator& NewLook);
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Aim")
+	FRotator HeadLook;
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
 
@@ -109,7 +114,7 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerRequestLevelRestart();
 
-	UFUNCTION(Server, Unreliable, WithValidation)
+	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerRequestDragMove(AMovableCrate* Crate, FVector Target);
 
 	UFUNCTION(Server, Reliable, WithValidation)

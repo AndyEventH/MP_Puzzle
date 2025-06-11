@@ -45,7 +45,7 @@ void AMovableCrate::ServerBeginDrag_Implementation(AController* InController)
 
 	DraggingController = InController;
 	SetOwner(InController);
-	ForceNetUpdate();
+	//ForceNetUpdate();
 
 	LockedZ = GetActorLocation().Z;
 	bWasSimulating = Mesh->IsSimulatingPhysics();
@@ -73,6 +73,7 @@ void AMovableCrate::ServerUpdateDrag_Implementation(const FVector& TargetLoc)
 		GetWorld()->GetDeltaSeconds(), DragInterpSpeed);
 
 	SetActorLocation(NewLoc, true, nullptr, ETeleportType::TeleportPhysics);
+	ForceNetUpdate();
 }
 
 bool AMovableCrate::ServerEndDrag_Validate()
@@ -86,6 +87,7 @@ void AMovableCrate::ServerEndDrag_Implementation()
 
 	DraggingController = nullptr;
 	SetOwner(nullptr);
+	//ForceNetUpdate();
 
 	Mesh->SetConstraintMode(EDOFMode::Default);
 	Mesh->SetLinearDamping(0.f);
