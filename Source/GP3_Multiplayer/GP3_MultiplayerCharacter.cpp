@@ -31,8 +31,6 @@ AGP3_MultiplayerCharacter::AGP3_MultiplayerCharacter()
 
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // ...at this rotation rate
 
-	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
-	// instead of recompiling to adjust them
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->bUseControllerDesiredRotation = true;
 	GetCharacterMovement()->JumpZVelocity = 700.f;
@@ -55,6 +53,7 @@ AGP3_MultiplayerCharacter::AGP3_MultiplayerCharacter()
 	FollowCamera->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight));
 
 	bReplicates = true;
+	SetReplicateMovement(true);
 	CharacterScale = 1.f;
 }
 
